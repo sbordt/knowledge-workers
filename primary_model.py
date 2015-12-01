@@ -1,6 +1,6 @@
 import numpy as np
 
-from scipy.optimize import minimize
+from scipy.optimize import minimize_scalar
 
 from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
@@ -10,43 +10,56 @@ def U_0(e, lam):
 	return lam*e-0.5*pow(e,2)
 
 def U_1(e, t_max, lam):
-	return e*t_max+(1-e)*lam*e-0.5*pow(e,2)
+	return e*t_max+(1.-e)*lam*e-0.5*pow(e,2)
 
 def U_2(e, t_min, t_max, lam):
-	return e*(t_max-t_min)+t_min-0.5*pow(e,2) 
-
-#	return e*t_max+(1-e)*t_min-0.5*pow(e,2)
+	return e*t_max+(1.-e)*t_min-0.5*pow(e,2)
 
 def U(e, t_min, t_max, lam):
 	return max(U_0(e, lam), U_1(e, t_max, lam), U_2(e, t_min, t_max, lam))	
 
 # returns 0 for full separation, 1 for partial separation, 2 for no separation
 def agent_strategy(t_min, t_max, lam):
-	if t_max-t_min <= 1:
-		return np.argmax([0.5*pow(lam,2), U_1((t_max+lam)/(2*lam+1), t_max, lam), U_2(t_max-t_min, t_min, t_max, lam)])
+	x = [0.5*pow(lam,2), U_1((t_max+lam)/(2*lam+1.), t_max, lam), U_2(t_max-t_min, t_min, t_max, lam)]
 
-	return np.argmax([0.5*pow(lam,2),(lam+0.5)*pow(t_max+lam,2)/pow(2*lam+1,2)])
+	if abs(t_max-t_min) > 1: # interior maximum outside [0,1]
+		x[2] = -1	
+
+	if t_max > 1+lam: # interior maximum outside [0,1]
+		x[1] = -1 
+
+	x[2] = max(x[2], t_max-0.5)	# border case 
+
+	return np.argmax(x)
 
 def agent_effort(t_min, t_max, lam):
-	s = agent_strategy(t_min, t_max, lam)
+	x = [0.5*pow(lam,2), U_1((t_max+lam)/(2*lam+1.), t_max, lam), U_2(t_max-t_min, t_min, t_max, lam)]
 
-	# assuming we are at an interior solution
-	return [lam, (t_max+lam)/(2*lam+1), t_max-t_min][s]
+	if abs(t_max-t_min) > 1: # interior maximum outside [0,1]
+		x[2] = -1	
+
+	if t_max > 1+lam: # interior maximum outside [0,1]
+		x[1] = -1 
+
+	if t_max-0.5 >= max(x): # border case
+		return 1.
+
+	return [lam, (t_max+lam)/(2*lam+1.), t_max-t_min][np.argmax(x)]
 
 def principal_payoff(t_min, t_max, lam, s_min, s_max):
 	s = agent_strategy(t_min, t_max, lam)
 	e = agent_effort(t_min, t_max, lam)
 
-	return [0, e*(s_max-t_max), e*(s_max-t_max) + (1-e)*(s_min-t_min)][s]
+	return [0, e*(s_max-t_max), e*(s_max-t_max) + (1.-e)*(s_min-t_min)][s]
 
 # returns a tupel (t_min, t_max)
 def principal_optimal_no_separation(lam, s_min, s_max):
 	# for a given level of delta t, find the optimal t_min (using bisection)
-	def optimal_t_min(dt, tol = 1e-12):
+	def optimal_t_min(dt):
 		t_min_0 = 0
-		t_min_1 = lam
+		t_min_1 = 1+lam
 
-		while t_min_1-t_min_0 > tol:
+		while t_min_1-t_min_0 > 1e-12:
 			t = (t_min_1+t_min_0)/2.
 
 			if agent_strategy(t,t+dt,lam) == 2:
@@ -54,24 +67,24 @@ def principal_optimal_no_separation(lam, s_min, s_max):
 			else:
 				t_min_0 = t
 
+		# assert we are up to an error of 1e-10	
+		assert(agent_strategy(t_min_1, t_min_1+dt,lam)==2)	
+		assert(not(agent_strategy(t_min_1-1e10, t_min_1-1e10+dt,lam)==2))
+
 		return t_min_1 
 
-	# find t_min(dt) for all values of dt between 0 and 1
+	# plot t_min versus dt
 	# x = np.arange(0,1,0.001)
 	# y = x.copy()
 
 	# for i, xx in enumerate(x):
 	# 	y[i] = optimal_t_min(xx)
-		
-	# 	assert(agent_strategy(y[i],y[i]+xx,lam)==2)
-	# 	assert(not(agent_strategy(y[i]-1e-5,y[i]-1e-5+xx,lam)==2))
 
-	# plots t_min versus dt
-	#plt.plot(x, y)
-	#plt.xlabel("dt")
-	#plt.ylabel("t_min")
-	#plt.xlim(0, 1)
-	#plt.show()
+	# plt.plot(x, y)
+	# plt.xlabel("dt")
+	# plt.ylabel("t_min")
+	# plt.xlim(0, 1)
+	# plt.show()
 
 	# find the princiapls payoff
 	# z = x.copy()
@@ -87,35 +100,25 @@ def principal_optimal_no_separation(lam, s_min, s_max):
 	# plt.show()
 
 	# maximize the principals payoff as a function of dt
-	res = minimize(lambda dt: -dt*(s_max-s_min-dt)-s_min+optimal_t_min(dt), (0.5,), method='L-BFGS-B', bounds=((0,1),))
+	res = minimize_scalar(lambda dt: -dt*(s_max-s_min-dt)-s_min+optimal_t_min(dt), method='bounded', bounds=(0,1))
+	#print res
 	assert(res.success)
 
-	t_min = optimal_t_min(res.x[0])
+	t_min = optimal_t_min(res.x)
 
-	return (t_min,t_min+res.x[0])
+	return (t_min,t_min+res.x)
 
 # returns a tupel (t_min, t_max)
 def principal_optimal_partial_separation(lam, s_min, s_max):
-	# determine the smallest t_max s.t. the agent still stays with the prinicipal
-	# (we knwo that t_min = 0 in this context)
-	# use bisection
-	t_max_0 = 0
-	t_max_1 = 1+lam
+	# the smallest t_max s.t. the agent still stays with the prinicipal
+	t_pp = lam*(np.sqrt(1+2*lam)-1.)+1e-12
 
-	while t_max_1-t_max_0 > 1e-12:
-		t = (t_max_1+t_max_0)/2.
-
-		if agent_strategy(0,t,lam) == 1:
-			t_max_1 = t
-		else:
-			t_max_0 = t
-
-	# what we want is now stored in t_max_1 
-	assert(agent_strategy(0,t_max_1,lam)==1)
-	assert(agent_strategy(0,t_max_1-1e-5,lam)==0)
+	# assert we are up to an error of 1e-8
+	assert(agent_strategy(0,t_pp,lam)==1)
+	assert(agent_strategy(0,t_pp-1e-8,lam)==0)
 
 	# plot the principals payoff as a function of t_max
-	x = np.arange(t_max_1,1+lam,0.01)
+	x = np.arange(t_pp,1+lam,0.01)
 	y = x.copy()
 
 	for i, xx in enumerate(x):
@@ -125,43 +128,68 @@ def principal_optimal_partial_separation(lam, s_min, s_max):
 	# plt.plot(x, y)
 	# plt.xlabel("t_max")
 	# plt.ylabel("principal expected payoff")
-	# plt.xlim(t_max_1, 1+lam)
+	# plt.xlim(t_pp, 1+lam)
 	# plt.show()
 	
 	# maximize the principals payoff
-	res = minimize(lambda t_max: -(t_max+lam)/(1.+2*lam)*(s_max-t_max), ((t_max_1+1+lam)/2.,), method='L-BFGS-B', bounds=((t_max_1,1+lam),))
+	res = minimize_scalar(lambda t_max: -(t_max+lam)/(1.+2*lam)*(s_max-t_max), method='bounded', bounds=(t_pp,1+lam))
 	assert(res.success)
 
-	return (0,res.x[0])
+	return (0,res.x)
 
 # returns a tupel (t_min, t_max)
 def principal_strategy(lam, s_min, s_max):
-	bnds = ((0, None), (0, None))
-
 	# find optimal no-separation contract
-	def f_2(x):
-		if agent_strategy(x[0],x[1],lam) == 2:
-			return -principal_payoff(x[0],x[1],lam,s_min,s_max)
-			
-		return 0
-
-	x_2 = minimize(f_2 , (0.7, 1.0), method='TNC', bounds=bnds)
-	#print x_2
+	t_ns = principal_optimal_no_separation(lam,s_min,s_max)
 
 	# find optimal partial-separation contract
-	def f_1(x):
-		if agent_strategy(x[0],x[1],lam) == 1:
-			return -principal_payoff(x[0],x[1],lam,s_min,s_max)
-			
-		return 0
+	t_ps = principal_optimal_partial_separation(lam,s_min,s_max)
 
-	x_1 = minimize(f_1 , (0.0, 1.0), method='TNC', bounds=bnds)
-	#print x_1
+	# choose the better of the two
+	if principal_payoff(t_ns[0],t_ns[1],lam,s_min,s_max) >= principal_payoff(t_ps[0],t_ps[1],lam,s_min,s_max):
+		return t_ns
 
-	if principal_payoff(x_1.x[0],x_1.x[1],lam,s_min,s_max) > principal_payoff(x_2.x[0],x_2.x[1],lam,s_min,s_max):
-		return x_1.x
+	return t_ps
 
-	return x_2.x
+# 1 for partial separation, 2 for no separation (full separation does not occur in equilibrium)
+def equilibrium_agent_strategy(lam, s_min, s_max):
+	t = principal_strategy(lam,s_min,s_max)
+
+	return agent_strategy(t[0],t[1],lam)
+
+# return the lowest value of s_min for that we have no separation
+def equilibirium_s_min(lam, s_max, tol=1e-3):
+	assert(s_max>=lam)
+
+	if equilibrium_agent_strategy(lam, lam, s_max) == 2:
+		return lam
+
+	s_min_0 = lam
+	s_min_1 = s_max
+
+	while s_min_1-s_min_0 > tol:
+		s = (s_min_1+s_min_0)/2.
+
+		if equilibrium_agent_strategy(lam,s,s_max) == 2:
+			s_min_1 = s
+		else:
+			s_min_0 = s
+
+	return s_min_1
+
+def plot_equilibrium_s_min(lam):
+	x = np.arange(lam,3.5,0.05)
+	y = x.copy()
+
+	for i, xx in enumerate(x):
+		print xx
+		y[i] = equilibirium_s_min(lam, xx)
+
+	plt.plot(x, y)
+	plt.xlabel("s_max")
+	plt.ylabel("s_min")
+	plt.xlim(lam, 3.5)
+	plt.show()
 
 def plot_U(t_min,t_max,lam):
 	x = np.arange(0,1,0.01)
@@ -234,14 +262,12 @@ def plot_principal_payoff(lam):
 	x = np.arange(lam,1+lam,0.005)
 	y = x.copy()
 	X, Y = np.meshgrid(x,y)	
-	Z = np.zeros((len(x),len(y)))
+	Z = np.zeros((len(y),len(x)))
 
 	for i,xx in enumerate(x):
 		for j,yy in enumerate(y):
 			# The x values correspond to the column indices of Z and the y values correspond to the row indices of Z
 			Z[j,i] = principal_payoff(yy,xx,lam)
-
-			i
 
 	plt.figure()
 	cs = plt.contourf(X, Y, Z)
@@ -255,14 +281,18 @@ def plot_resulting_strategy(lam):
 	x = np.arange(lam,3.5,0.05)
 	y = x.copy()
 	X, Y = np.meshgrid(x,y)	
-	Z = np.zeros((len(x),len(y)))
+	Z = np.zeros((len(y),len(x)))
 
 	for i,xx in enumerate(x):
+		print xx
+
 		for j,yy in enumerate(y):
 			# The x values correspond to the column indices of Z and the y values correspond to the row indices of Z
-			t = principal_strategy(lam,yy,xx)
-
-			Z[j,i] = agent_strategy(t[0],t[1],lam)
+			if xx >= yy:
+				t = principal_strategy(lam,yy,xx)
+				Z[j,i] = agent_strategy(t[0],t[1],lam)
+			else:
+				Z[j,i] = -1
 
 	plt.figure()
 	cs = plt.contourf(X, Y, Z)
@@ -287,11 +317,32 @@ def plot_resulting_strategy(lam):
 
 #print principal_strategy(0.9, 1.1, 1.5)
 
-#plot_resulting_strategy(0.5)
+plot_resulting_strategy(0.5)
 
 #print principal_optimal_no_separation(0.9, 0.6, 2.5)
+
+#print principal_optimal_no_separation(0.5, 0.75, 0.85)
 
 # three possible cases
 #print principal_optimal_partial_separation(0.5, 0.2, 0.5)
 #print principal_optimal_partial_separation(0.5, 0.2, 2)
 #print principal_optimal_partial_separation(0.5, 0.2, 6)
+
+#plot_equilibrium_s_min(0.5)
+
+#print equilibrium_agent_strategy(0.5, 1.3, 3.3)
+
+# lam = 0.5
+# smin = 1.2
+# smax = 3.2
+# t_ps = principal_optimal_partial_separation(lam,smin,smax)
+# t_ns = principal_optimal_no_separation(lam,smin,smax)
+
+
+# print t_ps
+# print agent_strategy(t_ps[0],t_ps[1],lam)
+# print principal_payoff(t_ps[0],t_ps[1],lam,smin,smax)
+# print ""
+# print t_ns
+# print agent_strategy(t_ns[0],t_ns[1],lam)
+# print principal_payoff(t_ns[0],t_ns[1],lam,smin,smax)
