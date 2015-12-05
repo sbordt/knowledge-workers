@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 #############################################################
-# The agents problem and response function to a given 		#
-# strategy of the principal. 								#
+# The agents problem and response function to a given       #
+# strategy of the principal.                                #
 #############################################################
 
 def U_0(e, lam):
@@ -20,8 +20,11 @@ def U_1(e, tmax, lam):
 def U_2(e, tmin, tmax, lam):
 	return e*tmax+(1.-e)*tmin-0.5*pow(e,2)
 
+def U_3(e, tmin, lam):
+	return (1-e)*tmin + (lam-0.5)*pow(e,2)
+
 def U(e, tmin, tmax, lam):
-	return max(U_0(e, lam), U_1(e, tmax, lam), U_2(e, tmin, tmax, lam))	
+	return max(U_0(e, lam), U_1(e, tmax, lam), U_2(e, tmin, tmax, lam), U_3(e,tmin,lam))
 
 # return a tupel (s,e) where s is the agents strategy (0,1,2 as in the paper)
 # and e the effort exercised
@@ -49,8 +52,8 @@ def agent_effort(tmin, tmax, lam):
 	return agent_response(tmin,tmax,lam)[1]
 
 #############################################################
-# The problem of the principal given lambda,				#
-# smin and smax 											#
+# The problem of the principal given lambda,                #
+# smin and smax                                             #
 #############################################################
 
 # return the principals payoff given his strategy
@@ -82,7 +85,7 @@ def principal_no_separation_tmin(lam, dt):
 # return the principals optimal no-separation contract as (tmin, tmax)
 def principal_optimal_no_separation(lam, smin, smax):
 	# maximize the principals payoff as a function of dt
-	res = minimize_scalar(lambda dt: -dt*(smax-smin-dt)-smin+principal_no_separation_tmin(lam,dt), method='bounded', bounds=(0,1))
+	res = minimize_scalar(lambda dt: -dt*(smax-smin-dt)-smin+principal_no_separation_tmin(lam,dt), method='bounded', bounds=(0,1), tol=1e-8)
 	assert(res.success)
 
 	tmin = principal_no_separation_tmin(lam,res.x)
@@ -99,7 +102,7 @@ def principal_optimal_partial_separation(lam, smin, smax):
 	assert(agent_strategy(0,t_pp-1e-5,lam)==0)
 	
 	# maximize the principals payoff
-	res = minimize_scalar(lambda tmax: -(tmax+lam)/(1.+2*lam)*(smax-tmax), method='bounded', bounds=(t_pp,1+lam))
+	res = minimize_scalar(lambda tmax: -(tmax+lam)/(1.+2*lam)*(smax-tmax), method='bounded', bounds=(t_pp,1+lam), tol=1e-8)
 	assert(res.success)
 
 	return (0,res.x)
@@ -119,15 +122,8 @@ def principal_optimal_strategy(lam, smin, smax):
 	return t_ps
 
 #############################################################
-# Properties of the equilibrium contract					#
+# Properties of the equilibrium contract                    #
 #############################################################
-
-# return the agents strategy in equilibrium
-# 1 for partial separation, 2 for no separation
-def equilibrium_agent_strategy(lam, smin, smax):
-	t = principal_optimal_strategy(lam,smin,smax)
-
-	return agent_strategy(t[0],t[1],lam)
 
 # return the lowest value of smin for that we have no separation
 def equilibirium_no_separation_smin(lam, smax):
@@ -154,14 +150,8 @@ def equilibirium_no_separation_smin(lam, smax):
 
 	return smin_1
 
-def equilibrium_principal_payoff(lam, smin, smax):
-	t = principal_optimal_strategy(lam,smin,smax)
-
-	return principal_payoff(t[0],t[1],lam,smin,smax)
-
-
 #############################################################
-# Plot the agents problem									#
+# Plot the agents problem                                   #
 #############################################################
 
 def plot_U(tmin, tmax, lam):
@@ -170,25 +160,27 @@ def plot_U(tmin, tmax, lam):
 	y_u_0 = x.copy()
 	y_u_1 = x.copy()
 	y_u_2 = x.copy()
+	y_u_3 = x.copy()
 
 	for i, xx in enumerate(x):
 		y_u[i] = U(xx, tmin, tmax, lam)
 		y_u_0[i] = U_0(xx, lam)
 		y_u_1[i] = U_1(xx, tmax, lam)
 		y_u_2[i] = U_2(xx, tmin, tmax, lam)
+		y_u_3[i] = U_3(xx, tmin, lam)
 
 	plt.plot(x, y_u_0)
 	plt.plot(x, y_u_1)
 	plt.plot(x, y_u_2)
+	plt.plot(x, y_u_3)
 	plt.plot(x, y_u, 'r--', linewidth=5.0, color='k')
 	plt.xlabel("Effort level e")
 	plt.ylabel("Expected utility")
 	plt.xlim(0, 1)
-
 	plt.show()
 
 def plot_agent_strategies(lam):
-	x = np.arange(0,1+lam,0.0025)
+	x = np.arange(0,1+lam,0.005)
 	y = x.copy()
 	X, Y = np.meshgrid(x,y)	
 	Z = np.zeros((len(x),len(y)))
@@ -196,46 +188,84 @@ def plot_agent_strategies(lam):
 	for i,xx in enumerate(x):
 		for j,yy in enumerate(y):
 			# The x values correspond to the column indices of Z and the y values correspond to the row indices of Z
-			Z[j,i] = agent_strategy(yy,xx,lam)
+			if yy<=xx:
+				Z[j,i] = agent_strategy(yy,xx,lam)
+			else:
+				Z[j,i] = -1
 
 	plt.figure()
-	cs = plt.contourf(X, Y, Z)
+	cs = plt.contourf(X, Y, Z, levels=[-0.1,0.9,1.9,2.1], colors=('b', 'g', 'r'))
 	plt.contour(cs, linewidth='2', colors='k')
 	plt.plot(x, x, linewidth='2', color='k')
-	plt.xlabel("t max")
-	plt.ylabel("t min")
-
+	#plt.xlabel("t max")
+	#plt.ylabel("t min")
 	plt.show()
 
 def plot_agent_effort(lam):
-	x = np.arange(0,1+lam,0.025)
+	x = np.arange(0,1+lam,0.005)
 	y = x.copy()
 	X, Y = np.meshgrid(x,y)	
-	Z = np.zeros((len(x),len(y)))
+	Z0 = np.zeros((len(x),len(y)))
+	Z1 = np.zeros((len(x),len(y)))
 
 	for i,xx in enumerate(x):
 		print xx
 
 		for j,yy in enumerate(y):
 			# The x values correspond to the column indices of Z and the y values correspond to the row indices of Z
-			Z[j,i] = agent_effort(yy,xx,lam)
+			if yy<=xx:
+				(s,e) = agent_response(yy,xx,lam)
+				Z0[j,i] = e
+				Z1[j,i] = s
+			else:
+				Z0[j,i] = -1
+				Z1[j,i] = -1
 
-			if yy > xx:
-				Z[j,i] = 0
+	plt.figure()
+	cs = plt.contourf(X, Y, Z0, cmap=cm.coolwarm, levels=np.arange(0,1.001,0.01))
+	cbar = plt.colorbar(cs)
+	#cbar.ax.set_ylabel('effort')
+	plt.plot(x, x, linewidth='2', color='k')
+	plt.contour(X, Y, Z1, linewidth='2', colors='k')
+	#plt.xlabel("t max")
+	#plt.ylabel("t min")
+	plt.show()
 
-	fig = plt.figure()
+def plot_agent_payoff(lam):
+	x = np.arange(0,1+lam,0.005)
+	y = x.copy()
+	X, Y = np.meshgrid(x,y)	
+	Z0 = np.zeros((len(x),len(y)))
+	Z1 = np.zeros((len(x),len(y)))
+	pmax = -1000
 
-	ax = fig.add_subplot(111, projection='3d')
-	ax.plot_surface(X, Y, Z, cmap=cm.coolwarm, rstride=1, cstride=1)
+	for i,xx in enumerate(x):
+		print xx
 
-	ax.set_xlabel("t max")
-	ax.set_ylabel("t min")
-	ax.set_zlabel("effort e")
+		for j,yy in enumerate(y):
+			# The x values correspond to the column indices of Z and the y values correspond to the row indices of Z
+			if yy<=xx:
+				(s,e) = agent_response(yy,xx,lam)
+				Z0[j,i] = U(e,yy,xx,lam)
+				Z1[j,i] = s
+				pmax = max(pmax,Z0[j,i])
+			else:
+				Z0[j,i] = -1
+				Z1[j,i] = -1
 
+	pmax = np.ceil(pmax*10)/10.
+	plt.figure()
+	cs = plt.contourf(X, Y, Z0, cmap=cm.PiYG, levels=np.arange(0,pmax,0.01)) 
+	cbar = plt.colorbar(cs)
+	#cbar.ax.set_ylabel('payoff')
+	plt.plot(x, x, linewidth='2', color='k')
+	plt.contour(X, Y, Z1, linewidth='2', colors='k')
+	#plt.xlabel("t max")
+	#plt.ylabel("t min")
 	plt.show()
 
 #############################################################
-# Plot the principials problem								#
+# Plot the principials problem                              #
 #############################################################
 
 def plot_principal_no_separation_problem(lam, smin, smax):
@@ -280,59 +310,95 @@ def plot_principal_partial_separation_problem(lam, smin, smax):
 	plt.xlim(t_pp, 1+lam)
 	plt.show()
 
-# plot the dependence of the principals payoff on smin,smax
-def plot_principal_payoff(lam):
-	x = np.arange(lam,1+lam,0.05)
+# plot the dependence of the principals payoff on tmin,tmax
+def plot_principal_payoff(lam, smin, smax):
+	x = np.arange(0,1+lam,0.005)
 	y = x.copy()
 	X, Y = np.meshgrid(x,y)	
-	Z = np.zeros((len(y),len(x)))
+	Z0 = np.zeros((len(x),len(y)))
+	Z1 = np.zeros((len(x),len(y)))
+	pmin = 1000
+	pmax = -1000
 
 	for i,xx in enumerate(x):
 		print xx
+
 		for j,yy in enumerate(y):
 			# The x values correspond to the column indices of Z and the y values correspond to the row indices of Z
-			Z[j,i] = equilibrium_principal_payoff(lam,yy,xx)
+			if yy<=xx:
+				(s,e) = agent_response(yy,xx,lam)
+				Z0[j,i] = principal_payoff(yy,xx,lam,smin,smax)
+				Z1[j,i] = s
+				pmin = min(pmin,Z0[j,i])
+				pmax = max(pmax,Z0[j,i])
+			else:
+				Z0[j,i] = -10
+				Z1[j,i] = -1
 
-			if yy > xx:
-				Z[j,i] = 0
-
-	fig = plt.figure()
-
-	ax = fig.add_subplot(111, projection='3d')
-	ax.plot_surface(X, Y, Z, cmap=cm.coolwarm, rstride=1, cstride=1)
-	
-	ax.set_xlabel("s max")
-	ax.set_ylabel("s min")
-	ax.set_zlabel("payoff")
-
+	pmin = np.floor(pmin*10)/10.
+	pmax = np.ceil(pmax*10)/10.
+	plt.figure()
+	cs = plt.contourf(X, Y, Z0, cmap=cm.PRGn, levels=np.arange(pmin,pmax,0.01))
+	cbar = plt.colorbar(cs)
+	#cbar.ax.set_ylabel('payoff')
+	plt.plot(x, x, linewidth='2', color='k')
+	plt.contour(X, Y, Z1, linewidth='2', colors='k')
+	#plt.xlabel("t max")
+	#plt.ylabel("t min")
+	(tmin,tmax) = principal_optimal_strategy(lam,smin,smax)
+	plt.plot(tmax,tmin,'r.')
 	plt.show()
 
 #############################################################
-# Plot properties of the equilibirum contract				#
+# Plot properties of the equilibirum contract               #
 #############################################################
 
-def plot_strategy_versus_s(lam):
+def plot_s_space(lam):
 	x = np.arange(lam,3.5,0.05)
 	y = x.copy()
 	X, Y = np.meshgrid(x,y)	
-	Z = np.zeros((len(y),len(x)))
+	Z0 = np.zeros((len(x),len(y)))
+	Z1 = np.zeros((len(x),len(y)))
+	Z2 = np.zeros((len(x),len(y)))
+	rmin = 1000
+	rmax = -1000
 
 	for i,xx in enumerate(x):
 		print xx
 
 		for j,yy in enumerate(y):
 			# The x values correspond to the column indices of Z and the y values correspond to the row indices of Z
-			if xx >= yy:
-				Z[j,i] = equibrium_agent_strategy(lam,yy,xx)
+			if yy<=xx:
+				(tmin,tmax) = principal_optimal_strategy(lam,yy,xx)
+				(s,e) = agent_response(tmin,tmax,lam)
+				Z0[j,i] = s
+				Z1[j,i] = abs(U(e,tmin,tmax,lam)-0.5*pow(lam,2))
+				rmin = min(rmin,Z1[j,i])
+				rmax = max(rmax,Z1[j,i])
+				if abs(e-min(1,xx-yy))<1e-2:
+					Z2[j,i] = 1
+				else:
+					Z2[j,i] = 0
 			else:
-				Z[j,i] = -1
+				Z0[j,i] = -1
+				Z1[j,i] = -1
+				Z2[j,i] = -1
 
+	rmin = np.floor(rmin*10)/10.
+	rmax = np.ceil(rmax*10)/10.
 	plt.figure()
-	cs = plt.contourf(X, Y, Z)
-	plt.contour(cs, linewidth='2', colors='k')
-	plt.plot(x, y, linewidth='2', color='k')
-	plt.xlabel("s max")
-	plt.ylabel("s min")
+	cs = plt.contourf(X, Y, Z1, cmap=cm.Blues, levels=np.arange(rmin,rmax,0.01))
+	plt.contour(cs, levels=[0.001], linewidth='2', colors='k', linestyles='dashed')
+	cbar = plt.colorbar(cs)
+	#cbar.ax.set_ylabel('rent')
+
+	cs = plt.contourf(X, Y, Z2, cmap=cm.bwr, levels=[0.5,1.5])
+	plt.contour(cs, linewidth='2', colors='k', linestyles='dashed')
+	
+	plt.contour(X, Y, Z0, levels=[-0.1,0.9,1.9,2.1], linewidth='2', colors='k')
+	#plt.xlabel("s max")
+	#plt.ylabel("s min")
+	plt.plot(x, x, linewidth='2', color='k')
 	plt.show()
 
 def plot_equilibrium_smin(lam):
@@ -352,25 +418,25 @@ def plot_equilibrium_smin(lam):
 	plt.show()
 
 #############################################################
-# Executing code for figure generation						#
+# Executing code for figure generation                      #
 #############################################################
 
 # figure 1
 #plot_U(0.4,0.6,0.8)
-
-# figure 2
 #plot_U(0.4,0.9,0.8)
 
-# figure 3 and 4
+# figure 2
 #plot_agent_strategies(0.9)
-#plot_agent_strategies(0.5)
+#plot_agent_effort(0.9)
 
-plot_agent_effort(0.9)
+# figure 3
+#plot_agent_payoff(0.9)
+#plot_principal_payoff(0.9,1.5,2.5)
 
-# plot_strategy_versus_s(0.5)
+# figure 4
+#plot_s_space(0.5)
+#plot_s_space(0.9)
 
-
-#print equilibrium_agent_strategy(0.5, 1.3, 3.3)
 
 lam = 0.5
 smin = 1.2
@@ -381,4 +447,4 @@ smax = 3.2
 #plot_equilibrium_smin(0.5)
 #plot_equilibrium_smin(0.9)
 
-plot_principal_payoff(0.9)
+#plot_principal_payoff(0.9)

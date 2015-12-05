@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 #############################################################
-# The agents problem and response function to a given 		#
-# strategy of the principal. 								#
+# The agents problem and response function to a given       #
+# strategy of the principal.                                #
 #############################################################
 
 #################### Custom model ###########################
@@ -69,7 +69,7 @@ def agent_effort(tmin, tmax):
 	return agent_response(tmin,tmax)[1]
 
 #############################################################
-# The problem of the principal given smin and smax			#
+# The problem of the principal given smin and smax          #
 #############################################################
 
 # return the principals payoff given his strategy
@@ -153,7 +153,7 @@ def principal_optimal_strategy(smin, smax):
 	return t_ps
 
 #############################################################
-# Properties of the equilibrium contract					#
+# Properties of the equilibrium contract                    #
 #############################################################
 
 # return the agents strategy in equilibrium
@@ -195,7 +195,7 @@ def equilibrium_principal_payoff(smin, smax):
 
 
 #############################################################
-# Plot the agents problem									#
+# Plot the agents problem                                   #
 #############################################################
 
 def plot_U(tmin, tmax):
@@ -274,7 +274,7 @@ def plot_agent_effort():
 	plt.show()
 
 #############################################################
-# Plot the principials problem								#
+# Plot the principials problem                              #
 #############################################################
 
 def plot_principal_no_separation_problem(smin, smax):
@@ -349,7 +349,7 @@ def plot_principal_payoff(lam):
 	plt.show()
 
 #############################################################
-# Plot properties of the equilibirum contract				#
+# Plot properties of the equilibirum contract               #
 #############################################################
 
 def plot_strategy_versus_s():
@@ -397,7 +397,7 @@ def plot_equilibrium_smin():
 	plt.show()
 
 #############################################################
-# Executing code for figure generation						#
+# Executing code for figure generation                      #
 #############################################################
 
 # x = np.arange(-1,2.5,0.001)
