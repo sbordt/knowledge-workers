@@ -222,7 +222,7 @@ def plot_agent_effort(lam):
 				Z1[j,i] = -1
 
 	plt.figure()
-	cs = plt.contourf(X, Y, Z0, cmap=cm.coolwarm, levels=np.arange(0,1.001,0.01))
+	cs = plt.contourf(X, Y, Z0, cmap=cm.Blues, levels=np.arange(0,1.001,0.01))
 	cbar = plt.colorbar(cs)
 	#cbar.ax.set_ylabel('effort')
 	plt.plot(x, x, linewidth='2', color='k')
@@ -255,7 +255,7 @@ def plot_agent_payoff(lam):
 
 	pmax = np.ceil(pmax*10)/10.
 	plt.figure()
-	cs = plt.contourf(X, Y, Z0, cmap=cm.PiYG, levels=np.arange(0,pmax,0.01)) 
+	cs = plt.contourf(X, Y, Z0, cmap=cm.Greens, levels=np.arange(0,pmax,0.01)) 
 	cbar = plt.colorbar(cs)
 	#cbar.ax.set_ylabel('payoff')
 	plt.plot(x, x, linewidth='2', color='k')
@@ -338,7 +338,7 @@ def plot_principal_payoff(lam, smin, smax):
 	pmin = np.floor(pmin*10)/10.
 	pmax = np.ceil(pmax*10)/10.
 	plt.figure()
-	cs = plt.contourf(X, Y, Z0, cmap=cm.PRGn, levels=np.arange(pmin,pmax,0.01))
+	cs = plt.contourf(X, Y, Z0, cmap=cm.Greens, levels=np.arange(pmin,pmax,0.01))
 	cbar = plt.colorbar(cs)
 	#cbar.ax.set_ylabel('payoff')
 	plt.plot(x, x, linewidth='2', color='k')
@@ -354,12 +354,12 @@ def plot_principal_payoff(lam, smin, smax):
 #############################################################
 
 def plot_s_space(lam):
-	x = np.arange(lam,3.5,0.05)
+	x = np.arange(lam,3.5,0.01)
 	y = x.copy()
 	X, Y = np.meshgrid(x,y)	
-	Z0 = np.zeros((len(x),len(y)))
-	Z1 = np.zeros((len(x),len(y)))
-	Z2 = np.zeros((len(x),len(y)))
+	Z0 = np.zeros((len(x),len(y))) # strategy
+	Z1 = np.zeros((len(x),len(y))) # agent's surplus
+	Z2 = np.zeros((len(x),len(y))) # first-best effort?
 	rmin = 1000
 	rmax = -1000
 
@@ -375,7 +375,7 @@ def plot_s_space(lam):
 				Z1[j,i] = abs(U(e,tmin,tmax,lam)-0.5*pow(lam,2))
 				rmin = min(rmin,Z1[j,i])
 				rmax = max(rmax,Z1[j,i])
-				if abs(e-min(1,xx-yy))<1e-2:
+				if abs(e-min(1,xx-yy))<1e-4:
 					Z2[j,i] = 1
 				else:
 					Z2[j,i] = 0
@@ -387,13 +387,11 @@ def plot_s_space(lam):
 	rmin = np.floor(rmin*10)/10.
 	rmax = np.ceil(rmax*10)/10.
 	plt.figure()
-	cs = plt.contourf(X, Y, Z1, cmap=cm.Blues, levels=np.arange(rmin,rmax,0.01))
-	plt.contour(cs, levels=[0.001], linewidth='2', colors='k', linestyles='dashed')
-	cbar = plt.colorbar(cs)
+	#cs = plt.contourf(X, Y, Z1, cmap=cm.Blues, levels=np.arange(rmin,rmax,0.01))
+	#cbar = plt.colorbar(cs)
 	#cbar.ax.set_ylabel('rent')
 
-	cs = plt.contourf(X, Y, Z2, cmap=cm.bwr, levels=[0.5,1.5])
-	plt.contour(cs, linewidth='2', colors='k', linestyles='dashed')
+	cs = plt.contour(X, Y, Z2, levels=[0.5,1.5], linestyles='dashed', linewidth='2', colors='k')
 	
 	plt.contour(X, Y, Z0, levels=[-0.1,0.9,1.9,2.1], linewidth='2', colors='k')
 	#plt.xlabel("s max")
@@ -436,15 +434,3 @@ def plot_equilibrium_smin(lam):
 # figure 4
 #plot_s_space(0.5)
 #plot_s_space(0.9)
-
-
-lam = 0.5
-smin = 1.2
-smax = 3.2
-#plot_principal_no_separation_problem(lam,smin,smax)
-#plot_principal_partial_separation_problem(lam,smin,smax)
-
-#plot_equilibrium_smin(0.5)
-#plot_equilibrium_smin(0.9)
-
-#plot_principal_payoff(0.9)
